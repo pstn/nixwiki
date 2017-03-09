@@ -1,1 +1,10 @@
-This is a wiki for nix and nixos
+===Resources===
+
+  * [[https://nixos.org/nix/manual/|Nix Manual]] [[https://github.com/NixOS/nix|Source code]]
+  * [[https://nixos.org/nixos/manual/|NixOS Manual]] [[https://github.com/NixOS/nixpkgs/tree/master/nixos|Source code]]
+  * [[https://nixos.org/nixpkgs/manual/|Nixpkgs Manual]] [[https://github.com/NixOS/nixpkgs|Source code]] [[https://howoldis.herokuapp.com/|Howoldis]]
+  * [[https://nixos.org/nixops/manual/|NixOpsManual]] [[https://github.com/NixOS/nixops|Source code]]
+
+  * [[https://nixos.org/wiki/FAQ|FAQ]]
+  * [[https://nixos.org/wiki/Nixpkgs_vs_other_packagers|Nixpkgs vs other packagers]]
+  * [[https://nixos.org/wiki/Cheatsheet|Cheatsheet]]
