@@ -5,6 +5,6 @@
   * [[https://nixos.org/nixpkgs/manual/|Nixpkgs Manual]] [[https://github.com/NixOS/nixpkgs|Source code]] [[https://howoldis.herokuapp.com/|Howoldis]]
   * [[https://nixos.org/nixops/manual/|NixOpsManual]] [[https://github.com/NixOS/nixops|Source code]]
 
-  * [[FAQ]]
+  * [[faq|FAQ]]
   * [[https://nixos.org/wiki/Nixpkgs_vs_other_packagers|Nixpkgs vs other packagers]]
   * [[https://nixos.org/wiki/Cheatsheet|Cheatsheet]]
