@@ -1,0 +1,236 @@
+=FAQ=
+
+=====Why is Nix written in C++ and Perl rather than a functional language like Haskell or OCaml, given the strong influence that functional programming has obviously had on Nix=====
+Mainly because Nix is intended to be lightweight, easy to learn and portable (zero dependencies).
+
+======Using nix to install new software requires downloading the source from upstream and the source has moved and therefore the download doesn't work=====
+After some searching with [[https://duckduckgo.com/?q=+myfile-0.1.2.tar.gz|myfile-0.1.2.tar.gz "index of"]] one usually can find the file and either:
+  * download it manually and copy into /tmp, then move that file into the store using: 
+<code>
+nix-prefetch-url file:///tmp/myfile-0.1.2.tar.gz # if the file is in the /tmp directory
+</code>
+  * download it directly
+<code>
+ nix-prefetch-url "http://example.com/programs/foo/myfile-0.1.2.tar.gz"
+</code>
+
+=====How to restart a systemd service?=====
+  * Identify the service if needed with
+<code>
+systemctl list-units
+</code>
+  * Restart it with
+<code>
+systemctl restart $unit
+</code>
+
+=====How to keep build-time dependencies around / be able to rebuild while being offline?=====
+<file nix configuration.nix>
+ nix.extraOptions = ''
+    gc-keep-outputs = true
+    gc-keep-derivations = true
+  '';
+</file>
+Check 'man configuration.nix' or 'nixos-option nix.extraOptions' for these options. Rebuild for these options to take effect:
+<code>
+nixos-rebuild switch
+</code>
+List all store paths that form the system closure and realise them:
+<code>
+ $ nix-store -qR $(nix-instantiate /etc/nixos/nixos -A system) | xargs nix-store -r
+ warning: you did not specify `--add-root'; the result might be removed by the garbage collector
+ ...
+ <build output and list of successfully realised paths>
+</code>
+Repeat for your user and further profiles:
+<code>
+ $ nix-store -qR ~/.nix-profile |xargs nix-store -r
+</code>
+
+The warning can be ignored for profiles that are listed/linked in /nix/var/nix/profiles/ or one of its subdirectories.
+
+Consult man pages of nix-store and nix-instantiate for further information. 
+
+=====How to add a custom udev rule in nixos?=====
+<file nix configuration.nix>
+ services.udev.extraRules = ''
+    ATTRS{idVendor}=="0665", ATTRS{idProduct}=="5161", MODE="666", SYMLINK+="hidraw_protecthome"
+  '';
+</file>
+
+=====Why <hash>-<name> instead of <name>-<hash>?=====
+For the rare cases where we have to dig into the /nix/store it is more practical to keep in mind the first few letters at the beginning than finding a package by name. In addition, the hash is printed by Nix commands. If you still wonder why, run ''ls -1 /nix/store | sort -R -t - -k 2 | less'' in your shell.
+
+This is what might happen if you don't garbage collect frequently, or if you are testing compilation variants:
+<code>
+ q0yi2nr8i60gm2zap46ryysydd2nhzhp-automake-1.11.1/
+ vbi4vwwidvd6kklq2kc0kx3nniwa3acl-automake-1.11.1/
+ wjgzir57hcbzrq3mcgxiwkyiqss3r4aq-automake-1.11.1/
+ 1ch5549xnck37gg2w5fh1jgk6lkpq5mc-nixos-build-vms/
+ 4cmjlxknzlvcdmfwj0ih0ggqsj5q73hb-nixos-build-vms/
+ 7fv4kwi5wwwzd11ili3qwg28xrj8rxw2-nixos-build-vms/
+ 8jij13smq9kdlqv96hm7y8xmbh2c54iy-nixos-build-vms/
+ j714mv53xi2j4ab4g2i08knqr137fd6l-nixos-build-vms/
+ xvs7y09jf7j48p6l0p87iypgpq470jqw-nixos-build-vms/
+</code>
+
+=====I've updated my channel and something is broken, how can I rollback to an earlier channel?=====
+View the available generations of your channel:
+<code>
+$ nix-env --list-generations -p /nix/var/nix/profiles/per-user/root/channels
+  18   2014-04-17 09:16:28
+  19   2014-06-13 10:31:24 
+  20   2014-08-12 19:09:20   (current)
+</code>
+To rollback to the previous generation:
+<code>
+$ nix-env --rollback -p /nix/var/nix/profiles/per-user/root/channels
+  switching from generation 20 to 19
+</code>
+To switch to a particular generation:
+<code>
+ $ nix-env --switch-generation 18 -p /nix/var/nix/profiles/per-user/root/channels
+ switching from generation 20 to 18
+</code>
+
+=====I'm working on a new package, how can I build it without adding it to nixpkgs?=====
+<code>
+ $ nix-build -E 'with import <nixpkgs> { }; callPackage ./mypackage.nix { }'
+</code>
+You can replace callPackage with callPackage_i686 to build the 32-bit version of your package on a 64-bit system if you want to test that.
+
+=====How can I compile a package with debugging symbols included?=====
+To build a package with -O0 and -g, and without stripping debug symbols use:
+<code>
+ $ nix-build -E 'with import <nixpkgs> { }; enableDebugging fooPackage'
+</code>
+
+=====How can I force a rebuild from source even without modifying the nix expression?=====
+As root you can run ''nix-build'' with the ''--check'' flag:
+<code>
+ /root/nixpkgs $ nix-build --check -A ncdu
+</code>
+
+=====How can I manage software with nix-env like with configuration.nix?=====
+There are many ways, one is the following:
+  - Create your ''packages.nix'' file with the packages you would like to have in your environment
+<file nix packages.nix>
+   with (import <nixpkgs> {});
+ { inherit pkg1 pkg2 ....; }
+</file>
+  - Install all specified packages using this command:
+<code>
+$ nix-env -f packages.nix -i
+</code>
+With this approach, you can also choose to install only certain packages by specifying their attribute name like this:
+<code>
+$ nix-env -f packages.nix -iA pkg1
+</code>
+  - Install all the packages, and remove everything else by using the --remove-all (-r) switch
+<code>
+$ nix-env -f packages.nix -ir
+</code>
+
+=====I've downloaded a binary, but I can't run it, what can I do?=====
+It probably just needs to know where to find the libraries it needs. You can write a simpler wrapper which sets LD_LIBRARY_PATH appropriately and installs it:
+<file nix mybinaryprogram.nix>
+  with import <nixpkgs> {}; with xlibs;
+  
+  stdenv.mkDerivation rec {
+      name = "somename";
+      buildInputs = [ makeWrapper ];
+  
+      buildPhase = "true";
+  
+      libPath = lib.makeLibraryPath [ libXrandr libXinerama libXcursor ];
+  
+      unpackPhase = "true";
+  
+      installPhase = ''
+        mkdir -p $out/bin
+        cp ${./mybinaryprogram} $out/bin/mybinaryprogram
+        wrapProgram $out/bin/mybinaryprogram \
+          --prefix LD_LIBRARY_PATH : "${libPath}"
+      '';
+  }
+</file>
+This can be built with:
+<code>
+$ nix-build mybinaryprogram.nix
+</code>
+And run with:
+<code>
+ $ ./result/bin/mybinaryprogram
+</code>
+
+=====What are channels and how they get updated?=====
+[[https://nixos.org/nixpkgs/manual/|Nixpkgs]] is [[https://github.com/NixOS/nixpkgs/|the git repository]] containing all packages and nixos modules/expressions. Installing packages directly from Nixpkgs master branch is possible but a bit risky as git commits are merged into master before being heavily tested. That's where channels are useful.
+
+A "channel" is a name for the latest "verified" git commits in Nixpkgs. Each channel has a different definition of what "verified" means. Each time a new git commit is verified, the channel declaring this verification gets updated. Contrary to an user of the git master branch, a channel user will benefit both from verified commits and binary packages from the binary cache.
+
+Channels are defined as git branches in the [[https://github.com/NixOS/nixpkgs-channels|nixpkgs-channels repository]] and as disk images in the [[https://nixos.org/channels/|channels webpage]]. There are several channels, each with its own use case and verification phase:
+  * ''nixpkgs-unstable''
+  * ''nixos-unstable''
+    Use this when you want the latest package and module versions while still benefiting from the binary cache. You can use this channel on non-NixOS systems. This channel corresponds to NixOS’s main development branch, and may thus see radical changes between channel updates. This channel is not recommended for production systems.
+  * ''nixos-unstable-small''
+    This channel is identical to ''nixos-unstable'' described above, except that this channel contains fewer binary packages. This means the channel gets updated faster than ''nixos-unstable'' (for instance, when a critical security patch is committed to NixOS’s source tree). However, the binary cache may contain less binary packages and thus using this channel may require building more packages from source than ''nixos-unstable''. This channel is mostly intended for server environments and as such contains few GUI applications.
+  * ''nixos-YY.MM'' (where YY is a 2-digit year and 'MM' is a 2-digit month, such as ''nixos-15.09''
+    These channels are called stable and only get conservative bug fixes and package upgrades. For instance, a channel update may cause the Linux kernel on your system to be upgraded from 3.4.66 to 3.4.67 (a minor bug fix), but not from 3.4.x to 3.11.x (a major change that has the potential to break things). Stable channels are generally maintained until the next stable branch is created.
+
+=====How do I know where's nixpkgs channel located and at which commit?=====
+First ''$echo $NIX_PATH"'' to see where nix looks for the expressions. Note that ''nix-env uses'' ''~/.nix-defexpr'' regardless of ''$NIX_PATH''.
+
+If you want to know where ''<nixpkgs>'' is located: ''nix-instantiate --find-file nixpkgs''
+
+To know the commit, open the ''.version-suffix'' file in the nixpkgs location. The hash after the dot is the git commit.
+
+
+=====An error occurs while fetching sources from an url, how do I fix it?=====
+First try to update the local nixpkgs expressions with ''$nix-channel --update'' (these describe where to download sources from and how to build them). Try your build again and the url might have already been correctly updated for the package in question. You can also subscribe the unstable channel (which includes the most up-to-date expressions) with ''$nix-channel --add http://nixos.org/channels/nixpkgs-unstable'', update and try the build again.
+
+If that fails you can update the url in the nix expression yourself. Navigate to your channel's expressions and find the package in one of the subdirectories. Edit the respective ''default.nix'' file by altering the url and ''sha256sum''. You can use ''$nix-prefetch-url url'' to get the SHA-256 hash of source distributions. If the shell complains that you do not have write privileges for the file system, you will have to enable them.
+<code>
+# start a new shell with a private mount namespace (Linux-only)
+sudo unshare -m bash
+# remount the filesystem with write privileges (as root)
+mount -o remount,rw /nix/store
+# update the file
+vim <PATH_TO_PACKAGE>/default.nix
+# exit to shell where /nix/store is still mounted read-only
+exit
+</code>
+Be sure to [[https://github.com/NixOS/nixpkgs/issues|report the incorrect url]] or [[https://github.com/NixOS/nixpkgs/pulls|fix it yourself]].
+
+=====How do I know the sha256 to use with my fetcher=====
+
+  * There are a couple of prefetch tools in ''nixpkgs'' already. Search for them with
+<code>
+nix-env -qaP | grep nix-prefetch
+</code>
+  * If nothing else works, fake a hash for example with ''echo fake | sha256sum'' and use the correct hash reported when nix tries to fetch your package.
+  Please note that you must not use the sha256 of any existing derivation.
+
+=====Should I use https://hydra.nixos.org/ as a binary cache?=====
+Short answer: no.
+
+https://cache.nixos.org is hosted on AWS S3, so it is fast and efficient, but it only contains binaries for nix channels (nixos-unstable, nixpkgs-unstable, and some stable channels too). So, if the channel is way behind, you may see recommendations to add https://hydra.nixos.org/ as a binary cache, as it contains all recent builds, including ones not pushed to channels.
+
+Unfortunately, due to poor caching, https://hydra.nixos.org/ needs to calculate what is available every time you ask about substitutes, so using it regularly as a cache will slow down the build machines.
+
+Thus, the recommended configuration is to not put http://hydra.nixos.org/ in any config file or automated script. But if you are working on nixpkgs master, then the binary cache provided by Hydra can be very helpful. In such a case, you can add the Hydra cache to the trusted binary caches in nix.conf or configuration.nix, restart the Nix daemon, and use --option extra-binary-caches http://hydra.nixos.org/ in whatever commands are convenient.
+
+
+=====I'm trying to install NixOS but my Wifi isn't working and I don't have an ethernet port=====
+Most phones will allow you to share your Wifi connection over USB. On Android you can enable this setting via Settings > Wireless & Networks / More ... > Tethering & portable hotspot > USB tethering. This should be enough to allow you to install NixOS, and then fix your Wifi.iPhones only let you tether using your data connection rather than WiFi.
+
+=====I'm coming from Gentoo, how can I disable the binary cache and build everything locally?=====
+Set the binary caches to an empty list: nix.binaryCaches = [];
+
+=====How do I enable chrooted builds on non-NixOS?=====
+Two options are needed to make chrooted builds work on Nix, ''build-use-chroot'' and ''build-chroot-dirs'':
+<code>
+echo "build-use-chroot = true" >> /etc/nix/nix.conf
+echo "build-chroot-dirs = $(nix-store -qR $(nix-build '<nixpkgs>' -A bash)|xargs echo /bin/sh=$(nix-build '<nixpkgs>' -A bash)/bin/bash)" >> /etc/nix/nix.conf
+</code>
+On NixOS this is done automatically. 
+
